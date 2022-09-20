@@ -39,6 +39,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 // Protótipos das funções
 int setupGeometry();
+int setupGeometry(int nAnimations, int nFrames, float &dy, float &dx);
 
 void drawPoint(Shader* shader, glm::vec3 coords, glm::vec3 color = glm::vec3(1.0,0.0,1.0), int pointsize = 10); 
 
@@ -88,6 +89,14 @@ int main()
 	cout << "Renderer: " << renderer << endl;
 	cout << "OpenGL version supported " << version << endl;
 
+	//Habilitar o teste de profundidade
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_ALWAYS);
+
+	//Habilitar a transparência
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	// Definindo as dimensões da viewport com as mesmas dimensões da janela da aplicação
 	int width, height;
 	glfwGetFramebufferSize(window, &width, &height);
@@ -99,10 +108,14 @@ int main()
 	Shader shader("../shaders/hello.vs", "../shaders/hello.fs");
 
 	// Gerando um buffer simples, com a geometria de um triângulo
-	GLuint VAO = setupGeometry();
+	GLuint VAO_Background = setupGeometry();
+
+	float dx, dy;
+	GLuint VAO_Player = setupGeometry(1, 5, dy, dx);
 
 	// Geração da textura
-	GLuint texID = generateTexture("../textures/mario.png");
+	GLuint texID = generateTexture("../textures/desert-100.jpg");
+	GLuint texIDPersonagem = generateTexture("../textures/dinoanda.png");
 
 	// Criação da matriz de projeção paralela ortográfica
 	glm::mat4 projection = glm::mat4(1); //matriz identidade
@@ -115,7 +128,10 @@ int main()
 	
 	glUniform1i(glGetUniformLocation(shader.ID, "tex_buffer"), 0);
 
-	
+	int iFrame = 0;
+
+	glActiveTexture(GL_TEXTURE0);
+
 	// Loop da aplicação - "game loop"
 	while (!glfwWindowShouldClose(window))
 	{
@@ -129,41 +145,51 @@ int main()
 		glLineWidth(10);
 		glPointSize(20);
 
+		/// IMAGEM DE BACKGROUND
+
+		//Atualizando a matriz de modelo
 		glm::mat4 model = glm::mat4(1); //matriz de modelo: transformações na geometria		
 		model = glm::translate(model, glm::vec3(400.0f, 300.0f, 0.0f));
 		//model = glm::rotate(model, /*glm::radians(45.0f)*/(float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
-		model = glm::scale(model, glm::vec3(350.0f, 350.f, 1.0f));
+		model = glm::scale(model, glm::vec3(800.0f, 600.f, 1.0f));
 		//......
-
 		shader.setMat4("model", glm::value_ptr(model));
-
-		glActiveTexture(GL_TEXTURE0);
+		// Conectando com a textura a ser usada
 		glBindTexture(GL_TEXTURE_2D, texID);
-
-
+		//Passando o offset na textura para o shader 
+		shader.setVec2("offset", 0.0, 0.0);
 		// Chamada de desenho - drawcall
-		// Poligono Preenchido - GL_TRIANGLES
-		shader.setVec4("inputColor",1.0f, 1.0f, 0.0f, 1.0f); //enviando cor para variável uniform inputColor
-		glBindVertexArray(VAO);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glBindVertexArray(VAO_Background); //conectando com o buffer de geometria correto
+		glDrawArrays(GL_TRIANGLES, 0, 6);
 
+		/// IMAGEM DO PERSONAGEM
+
+		//Passando o offset na textura para o shader
+		shader.setVec2("offset", iFrame * dx, dy);
+		//incrementando o indice do frame
+		iFrame = (iFrame + 1) % 5;
+		//Atualizando a matriz de modelo
+		model = glm::mat4(1); //matriz de modelo: transformações na geometria		
+		model = glm::translate(model, glm::vec3(100.0f, 100.0f, 0.0f));
+		//model = glm::rotate(model, /*glm::radians(45.0f)*/(float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
+		model = glm::scale(model, glm::vec3(120.0f, 72.f, 1.0f));
+		//......
+		shader.setMat4("model", glm::value_ptr(model));
+		//Conectando com a textura para ser usada
+		glBindTexture(GL_TEXTURE_2D, texIDPersonagem);
 		// Chamada de desenho - drawcall
-		// CONTORNO - GL_LINE_LOOP
-		// PONTOS - GL_POINTS
-		//shader.setVec4("inputColor",1.0f, 0.0f, 1.0f, 1.0f); //enviando cor para variável uniform inputColor
-		//glDrawArrays(GL_LINE_LOOP, 0, 3);
-
-		//model = glm::mat4(1);
-		//shader.setMat4("model", glm::value_ptr(model));
-		//drawPoint(&shader, glm::vec3(400.0, 300.0, 0.0));
+		glBindVertexArray(VAO_Player); //conectando com o buffer de geometria correto
+		glDrawArrays(GL_TRIANGLES, 0, 6);
 		
+		//Desconectando o buffer
 		glBindVertexArray(0);
 
 		// Troca os buffers da tela
 		glfwSwapBuffers(window);
 	}
 	// Pede pra OpenGL desalocar os buffers
-	glDeleteVertexArrays(1, &VAO);
+	glDeleteVertexArrays(1, &VAO_Background);
+	glDeleteVertexArrays(1, &VAO_Player);
 	// Finaliza a execução da GLFW, limpando os recursos alocados por ela
 	glfwTerminate();
 	return 0;
@@ -192,10 +218,13 @@ int setupGeometry()
 	// Pode ser arazenado em um VBO único ou em VBOs separados
 	GLfloat vertices[] = {
 		//posição         //cor         //tex coord
-		-0.5 , -0.5, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
-		 0.5,  -0.5, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
-		 0.0,  0.5 , 0.0, 0.0, 0.0, 1.0, 0.5, 1.0
+		-0.5 , -0.5, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,  //v0
+		 0.5,  -0.5, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0,  //v1
+		 0.5,  0.5 , 0.0, 0.0, 0.0, 1.0, 1.0, 1.0,   //v2
 		 //outro triangulo vai aqui
+		-0.5 , -0.5, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,  //v0
+		 0.5,   0.5, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0,   //v2
+		-0.5,  0.5 , 0.0, 0.0, 0.0, 1.0, 0.0, 1.0,   //v3
 	};
 
 	GLuint VBO, VAO;
@@ -238,6 +267,71 @@ int setupGeometry()
 
 	// Desvincula o VAO (é uma boa prática desvincular qualquer buffer ou array para evitar bugs medonhos)
 	glBindVertexArray(0); 
+
+	return VAO;
+}
+
+int setupGeometry(int nAnimations, int nFrames, float& dy, float& dx)
+{
+	// Aqui setamos as coordenadas x, y e z do triângulo e as armazenamos de forma
+	// sequencial, já visando mandar para o VBO (Vertex Buffer Objects)
+	// Cada atributo do vértice (coordenada, cores, coordenadas de textura, normal, etc)
+	// Pode ser arazenado em um VBO único ou em VBOs separados
+	dx = 1.0 / (float)nFrames;
+	dy = 1.0 / (float)nAnimations;
+
+	
+	GLfloat vertices[] = {
+		//posição         //cor         //tex coord
+		-0.5 , -0.5, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,  //v0
+		 0.5,  -0.5, 0.0, 0.0, 1.0, 0.0, dx, 0.0,  //v1
+		 0.5,  0.5 , 0.0, 0.0, 0.0, 1.0, dx, dy,   //v2
+		 //outro triangulo vai aqui
+		-0.5 , -0.5, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,  //v0
+		 0.5,   0.5, 0.0, 0.0, 1.0, 0.0, dx, dy,   //v2
+		-0.5,  0.5 , 0.0, 0.0, 0.0, 1.0, 0.0, dy,   //v3
+	};
+
+	GLuint VBO, VAO;
+
+	//Geração do identificador do VBO
+	glGenBuffers(1, &VBO);
+	//Faz a conexão (vincula) do buffer como um buffer de array
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	//Envia os dados do array de floats para o buffer da OpenGl
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	//Geração do identificador do VAO (Vertex Array Object)
+	glGenVertexArrays(1, &VAO);
+	// Vincula (bind) o VAO primeiro, e em seguida  conecta e seta o(s) buffer(s) de vértices
+	// e os ponteiros para os atributos 
+	glBindVertexArray(VAO);
+	//Para cada atributo do vertice, criamos um "AttribPointer" (ponteiro para o atributo), indicando: 
+	// Localização no shader * (a localização dos atributos devem ser correspondentes no layout especificado no vertex shader)
+	// Numero de valores que o atributo tem (por ex, 3 coordenadas xyz) 
+	// Tipo do dado
+	// Se está normalizado (entre zero e um)
+	// Tamanho em bytes 
+	// Deslocamento a partir do byte zero 
+
+	//Atributo posição
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0);
+	glEnableVertexAttribArray(0);
+
+	//Atributo cor
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+
+	//Atributo coord tex
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(6 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+
+	// Observe que isso é permitido, a chamada para glVertexAttribPointer registrou o VBO como o objeto de buffer de vértice 
+	// atualmente vinculado - para que depois possamos desvincular com segurança
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// Desvincula o VAO (é uma boa prática desvincular qualquer buffer ou array para evitar bugs medonhos)
+	glBindVertexArray(0);
 
 	return VAO;
 }
