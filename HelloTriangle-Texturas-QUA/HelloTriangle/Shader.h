@@ -131,5 +131,12 @@ public:
 	{
 		glUniformMatrix4fv(glGetUniformLocation(this->ID, name.c_str()), 1, GL_FALSE, v);
 	}
+
+	// ------------------------------------------------------------------------
+	void setVec2(const std::string& name, float v1, float v2) const
+	{
+		glUniform2f(glGetUniformLocation(this->ID, name.c_str()), v1, v2);
+	}
+
 };
 

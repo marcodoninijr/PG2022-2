@@ -35,6 +35,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 // Protótipos das funções
 int setupGeometry();
+int setupSprite();
+int setupSprite(int nAnimations, int nFrames, float &dx, float &dy);
 
 GLuint createTexture(string filePath);
 
@@ -91,9 +93,22 @@ int main()
 	Shader shader("../shaders/hello.vs", "../shaders/hello.fs");
 
 	// Gerando um buffer simples, com a geometria de um triângulo
-	GLuint VAO = setupGeometry();
+	
+	float dx, dy;
+	GLuint VAO_Fundo = setupSprite(1, 1, dx, dy);
+	GLuint VAO_Meteoro = setupSprite(1, 1, dx, dy);
+	GLuint VAO_Personagem = setupSprite(1, 5, dx, dy);
+	
+	
+	int iAnimation = 0;
+	int iFrame = 0;
+	int nFrames = 5;
 
-	GLuint texID = createTexture("../textures/fundo.png");
+	float xMeteoro = 400.0f, yMeteoro = 700.0f;
+
+	GLuint texID_Fundo = createTexture("../textures/desert-100.jpg");
+	GLuint texID_Personagem = createTexture("../textures/dinoanda.png");
+	GLuint texID_Meteoro = createTexture("../textures/flaming_meteor.png");
 
 	//Matriz de projeção
 	glm::mat4 projection = glm::mat4(1); //matriz identidade
@@ -109,6 +124,16 @@ int main()
 
 
 	glActiveTexture(GL_TEXTURE0);
+
+	//Habilitando o teste de profundidade
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_ALWAYS);
+
+	//Habilitando a transparência
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+
 
 	
 	// Loop da aplicação - "game loop"
@@ -127,29 +152,57 @@ int main()
 		glfwGetFramebufferSize(window, &width, &height);
 		glViewport(0, 0, width, height);
 
+		//----------------FUNDO---------------------
 		//Matriz de transformação do objeto
 		glm::mat4 model = glm::mat4(1); //matriz identidade
 		model = glm::translate(model, glm::vec3(400.0f, 300.0f, 0.0f));
-		model = glm::rotate(model, /*glm::radians(90.0f)*/(float) glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
-		model = glm::scale(model, glm::vec3(300.0f, 300.0f, 1.0f));
-		
-
+		//model = glm::rotate(model, /*glm::radians(90.0f)*/(float) glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
+		model = glm::scale(model, glm::vec3(1080.0f, 540.0f, 1.0f));
 		shader.setMat4("model", glm::value_ptr(model));
 
+		//Mandar para o shader os deslocamentos da texturas (spritesheet)
+		shader.setVec2("offsets", 1, 1);
 		// Chamada de desenho - drawcall
 		// Poligono Preenchido - GL_TRIANGLES
-		shader.setVec4("inputColor",1.0f, 1.0f, 0.0f, 1.0f); //enviando cor para variável uniform inputColor
-		glBindVertexArray(VAO);
-		glBindTexture(GL_TEXTURE_2D, texID);
 
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glBindVertexArray(VAO_Fundo);
+		glBindTexture(GL_TEXTURE_2D, texID_Fundo);
 
-		// Chamada de desenho - drawcall
-		// CONTORNO - GL_LINE_LOOP
-		// PONTOS - GL_POINTS
-		shader.setVec4("inputColor",1.0f, 0.0f, 1.0f, 1.0f); //enviando cor para variável uniform inputColor
-		glDrawArrays(GL_LINE_LOOP, 0, 3);
-		
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		//---------------DINO-------------------------
+		model = glm::mat4(1); //matriz identidade
+		model = glm::translate(model, glm::vec3(100.0f, 170.0f, 0.0f));
+		//model = glm::rotate(model, /*glm::radians(90.0f)*/(float) glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
+		model = glm::scale(model, glm::vec3(120.0f, 72.0f, 1.0f));
+		shader.setMat4("model", glm::value_ptr(model));
+
+		shader.setVec2("offsets", iFrame * dx, iAnimation * dy);
+
+		iFrame = (iFrame + 1) % nFrames;
+
+		glBindVertexArray(VAO_Personagem);
+		glBindTexture(GL_TEXTURE_2D, texID_Personagem);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		//--------------METEORO--------------------------
+		model = glm::mat4(1); //matriz identidade
+		model = glm::translate(model, glm::vec3(xMeteoro, yMeteoro, 0.0f));
+		//model = glm::rotate(model, /*glm::radians(90.0f)*/(float) glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
+		model = glm::scale(model, glm::vec3(64.0f, 64.0f, 1.0f));
+		shader.setMat4("model", glm::value_ptr(model));
+
+		shader.setVec2("offsets", 1, 1);
+
+		glBindVertexArray(VAO_Meteoro);
+		glBindTexture(GL_TEXTURE_2D, texID_Meteoro);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		yMeteoro -= 15;
+		if (yMeteoro <= 0.0)
+		{
+			yMeteoro = 700;
+			xMeteoro = 64 + rand() % 736;
+		}
 
 		glBindVertexArray(0);
 
@@ -157,7 +210,8 @@ int main()
 		glfwSwapBuffers(window);
 	}
 	// Pede pra OpenGL desalocar os buffers
-	glDeleteVertexArrays(1, &VAO);
+	glDeleteVertexArrays(1, &VAO_Personagem);
+	glDeleteVertexArrays(1, &VAO_Fundo);
 	// Finaliza a execução da GLFW, limpando os recursos alocados por ela
 	glfwTerminate();
 	return 0;
@@ -276,3 +330,113 @@ GLuint createTexture(string filePath)
 	return texID;
 }
 
+int setupSprite()
+{
+	GLfloat vertices[] = {
+		//x   y     z    s    t
+		//Primeiro triângulo
+		-0.5, -0.5, 0.0, 0.0, 0.0, //v0
+		 0.5, -0.5, 0.0, 1.0, 0.0, //v1
+		 0.5,  0.5, 0.0, 1.0, 1.0,  //v2
+		 //outro triangulo vai aqui
+		-0.5, -0.5, 0.0, 0.0, 0.0, //v0
+		 0.5,  0.5, 0.0, 1.0, 1.0,  //v2
+		-0.5,  0.5, 0.0, 0.0, 1.0, //v3
+	};
+
+	GLuint VBO, VAO;
+
+	//Geração do identificador do VBO
+	glGenBuffers(1, &VBO);
+	//Faz a conexão (vincula) do buffer como um buffer de array
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	//Envia os dados do array de floats para o buffer da OpenGl
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	//Geração do identificador do VAO (Vertex Array Object)
+	glGenVertexArrays(1, &VAO);
+	// Vincula (bind) o VAO primeiro, e em seguida  conecta e seta o(s) buffer(s) de vértices
+	// e os ponteiros para os atributos 
+	glBindVertexArray(VAO);
+	//Para cada atributo do vertice, criamos um "AttribPointer" (ponteiro para o atributo), indicando: 
+	// Localização no shader * (a localização dos atributos devem ser correspondentes no layout especificado no vertex shader)
+	// Numero de valores que o atributo tem (por ex, 3 coordenadas xyz) 
+	// Tipo do dado
+	// Se está normalizado (entre zero e um)
+	// Tamanho em bytes 
+	// Deslocamento a partir do byte zero 
+
+	//Atributo posição
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
+	glEnableVertexAttribArray(0);
+
+	//Atributo coord de textura
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+
+	// Observe que isso é permitido, a chamada para glVertexAttribPointer registrou o VBO como o objeto de buffer de vértice 
+	// atualmente vinculado - para que depois possamos desvincular com segurança
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// Desvincula o VAO (é uma boa prática desvincular qualquer buffer ou array para evitar bugs medonhos)
+	glBindVertexArray(0);
+
+	return VAO;
+}
+
+int setupSprite(int nAnimations, int nFrames, float& dx, float& dy)
+{
+	dx = 1.0 / nFrames;
+	dy = 1.0 / nAnimations;
+
+	GLfloat vertices[] = {
+		//x   y     z    s    t
+		//Primeiro triângulo
+		-0.5, -0.5, 0.0, 0.0, 0.0, //v0
+		 0.5, -0.5, 0.0, dx, 0.0, //v1
+		 0.5,  0.5, 0.0, dx, dy,  //v2
+		 //outro triangulo vai aqui
+		-0.5, -0.5, 0.0, 0.0, 0.0, //v0
+		 0.5,  0.5, 0.0, dx, dy,  //v2
+		-0.5,  0.5, 0.0, 0.0, dy, //v3
+	};
+
+	GLuint VBO, VAO;
+
+	//Geração do identificador do VBO
+	glGenBuffers(1, &VBO);
+	//Faz a conexão (vincula) do buffer como um buffer de array
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	//Envia os dados do array de floats para o buffer da OpenGl
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	//Geração do identificador do VAO (Vertex Array Object)
+	glGenVertexArrays(1, &VAO);
+	// Vincula (bind) o VAO primeiro, e em seguida  conecta e seta o(s) buffer(s) de vértices
+	// e os ponteiros para os atributos 
+	glBindVertexArray(VAO);
+	//Para cada atributo do vertice, criamos um "AttribPointer" (ponteiro para o atributo), indicando: 
+	// Localização no shader * (a localização dos atributos devem ser correspondentes no layout especificado no vertex shader)
+	// Numero de valores que o atributo tem (por ex, 3 coordenadas xyz) 
+	// Tipo do dado
+	// Se está normalizado (entre zero e um)
+	// Tamanho em bytes 
+	// Deslocamento a partir do byte zero 
+
+	//Atributo posição
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
+	glEnableVertexAttribArray(0);
+
+	//Atributo coord de textura
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+
+	// Observe que isso é permitido, a chamada para glVertexAttribPointer registrou o VBO como o objeto de buffer de vértice 
+	// atualmente vinculado - para que depois possamos desvincular com segurança
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// Desvincula o VAO (é uma boa prática desvincular qualquer buffer ou array para evitar bugs medonhos)
+	glBindVertexArray(0);
+
+	return VAO;
+}
