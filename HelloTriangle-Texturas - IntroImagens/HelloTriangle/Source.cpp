@@ -114,7 +114,7 @@ int main()
 	GLuint VAO_Player = setupGeometry(1, 5, dy, dx);
 
 	// Geração da textura
-	GLuint texID = generateTexture("../textures/babuino.jpg");
+	GLuint texID = generateTexture("../textures/mario.png");
 	GLuint texIDPersonagem = generateTexture("../textures/dinoanda.png");
 
 	// Criação da matriz de projeção paralela ortográfica
@@ -381,11 +381,11 @@ GLuint generateTexture(string filePath)
 		for (int i = 0; i < size; i += nrChannels)
 		{
 			float media = (data[i] * 0.21 + data[i + 1] * 0.71 + data[i + 2] * 0.07);
-
-			data[i] = media; //canal R
-			data[i + 1] = media; //canal G
-			data[i + 2] = media; //canal B
-
+			
+				data[i] = media; //canal R
+				data[i + 1] = media; //canal G
+				data[i + 2] = media; //canal B
+			
 		}
 
 
