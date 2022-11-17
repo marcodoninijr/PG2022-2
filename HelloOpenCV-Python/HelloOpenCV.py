@@ -1,11 +1,11 @@
 import numpy as np
 import cv2 as cv
 
-img = cv.imread('baboon.png') #original
-img2 = cv.imread('baboon.png') #aplicar grayscale com media aritmetica, pesos iguais por canal
-img3 = cv.imread('baboon.png') #aplicar grayscale com media ponderada, usando a distribuição dos cones RGB
+img = cv.imread('pikachu.png') #original
+img2 = cv.imread('pikachu.png') #aplicar grayscale com media aritmetica, pesos iguais por canal
+img3 = cv.imread('pikachu.png') #aplicar grayscale com media ponderada, usando a distribuição dos cones RGB
 
-print(img.shape)
+#print(img.shape)
 
 for i in range(img.shape[0]):
 	for j in range(img.shape[1]):
@@ -21,7 +21,9 @@ for i in range(img.shape[0]):
 		img3.itemset((i,j,0),mediaPond) # canal B
 		img3.itemset((i,j,1),mediaPond) # canal G
 		img3.itemset((i,j,2),mediaPond) # canal R
-		#print(img[i,j])
+		print(img[i,j])
+
+
 
 cv.imshow("Colorida", img)
 cv.imshow("GrayScale Media Aritmetica", img2)
